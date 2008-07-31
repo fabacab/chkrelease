@@ -132,6 +132,10 @@ function usage () {
     echo
     echo "    Prints the program version number on a line by itself and exits."
     echo
+    echo "$PROGRAM <--help|--usage|-?>"
+    echo
+    echo "    Prints this usage output and exits."
+    echo
     echo "$PROGRAM [--count|-c] [--messy|-m] [--progress|-p] <release_tarball> [root_of_directory_to_audit]"
     echo
     echo "    <release_tarball> is the tar file to compare [root_of_directory_to_audit] against."
@@ -184,7 +188,11 @@ while test $# -gt 0; do
             ;;
 
         --version | -v )
-            versionAndExit
+            versionAndExit 0
+            ;;
+
+        -? | --help | --usage )
+            usageAndExit 0
             ;;
 
         -* )
