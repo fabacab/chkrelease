@@ -32,6 +32,17 @@
 #
 #                  awk '{print $1}' /tmp/deltas | \
 #                      tar -C / -xvf /tmp/release-tarball.tar --files-from=-
+#
+#              Another use of chkrelease.sh is to generate a report that shows
+#              whether or not a directory hierarchy's contents match the contents of
+#              a tarfile. To do this, simply reverse the arguments to the script
+#              so that the second argument is the tarfile and the first is the path
+#              you want to check. This usage looks like this:
+#
+#                  chkrelease.sh ~/mydir ~/backup-of-mydir.tar
+#
+#              Used this way, both arguments are required.
+#
 
 # DEBUGGING
 set -e
@@ -152,6 +163,12 @@ function usage () {
     echo "    on STDERR during operation. Useful if you are bored and want something to watch."
     echo "    Alternatively, while $PROGRAM is running in the background, send it a SIGHUP to"
     echo "    produce the same effect. If set, '--count' is automatically assumed, as well."
+    echo
+    echo "$PROGRAM [--count|-c] [--messy|-m] [--progress|-p] <directory_root_to_audit> <release_tarfile>"
+    echo
+    echo "    Same as above, except this time the comparison will check the tarfile against the"
+    echo "    filesystem instead of the othe way around. This will, for instance, show you a report of"
+    echo "    files that exist on the filesystem but do not exist in the tarfile."
 }
 
 function usageAndExit () {
@@ -206,24 +223,31 @@ while test $# -gt 0; do
     esac
 done
 
-# Ensure we have a tarball to work with
-if [[ $1 == '' ]]; then
+# Validate our parameters and determine the operating mode based on them
+if [ "$1" == '' ]; then
     echo "$PROGRAM: missing parameter" 1>&2
     usageAndExit $E_MISSING_PARAM
-elif [ ! -f $1 -o ! -r $1 ]; then
-    echo "$PROGRAM: $1 is not a readable file" 1>&2
-    usageAndExit $E_BAD_TARBALL
-else
+elif [ -f "$1" -a -r "$1" ]; then
     TARBALL="$1"
-fi
-
-# Get our comparison directory
-if [[ $2 != '' ]]; then
-    CMPDIR="$2"
-    if [ ! -d $CMPDIR -o ! -r $CMPDIR ]; then
-        echo "$PROGRAM: $CMPDIR is not a readable directory" 1>&2
-        usageAndExit $E_BAD_OPTION
+    # Get our comparison directory
+    if [ "$2" != '' ]; then
+        CMPDIR="$2"
+        if [ ! -d $CMPDIR -o ! -r $CMPDIR ]; then
+            echo "$PROGRAM: $CMPDIR is not a readable directory" 1>&2
+            usageAndExit $E_BAD_OPTION
+        fi
     fi
+elif [ -d "$1" -a -r "$1" ]; then
+    CMPDIR="$1"
+    if [ "$2" == '' -o ! -r "$2" -o ! -f "$2" ]; then
+        echo "$PROGRAM: No readable tarfile provided"
+        usageAndExit $E_BAD_TARBALL
+    else
+        TARBALL="$2"
+    fi
+else
+    echo "$PROGRAM: $1 is not a readable file or directory" 1>&2
+    usageAndExit $E_BAD_OPTION
 fi
 
 "$TARUTIL" -tf "$TARBALL" | grep -v '/$' > "$TMPDIR/$PROGRAM.out.$$"
